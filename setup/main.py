@@ -52,7 +52,7 @@ def main():
 
     ### LOAD INPUT 3D MODEL ####################################################
 
-    parent_path = os.path.abspath('..')
+    parent_path = os.path.abspath('./')
     mesh = om.read_trimesh(parent_path+'\\3d_model\\plank.obj', vertex_normal=True)
 
     #Vertices with normals
@@ -82,8 +82,8 @@ def main():
 
     ### LOAD VERTEX AND FRAGEMENT SHADERS FROM EXTERNAL FILES ##################
 
-    VERTEX_SHADER = open("main.vert",'r').read()
-    FRAGMENT_SHADER = open("main.frag",'r').read()
+    VERTEX_SHADER = open(parent_path+"\\setup\\main.vert",'r').read()
+    FRAGMENT_SHADER = open(parent_path+"\\setup\\main.frag",'r').read()
 
     # Compile The Program and shaders
 
