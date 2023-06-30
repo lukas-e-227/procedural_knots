@@ -34,6 +34,8 @@ def load_texture(i, path, nearest=False, repeat_x_edge=False):
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+
+
 def main():
 
     ### WINDOW SETUP ###########################################################
@@ -41,7 +43,8 @@ def main():
     if not glfw.init():
         return
 
-    width = height = 1200
+    width = 960
+    height = 540
     window = glfw.create_window(width, height, "Procedural Knots", None, None)
 
     if not window:
@@ -140,24 +143,25 @@ def main():
     knumLoc = glGetUniformLocation(shader, "N")
     glUniform1i(knumLoc, knum)
 
-    # Model matrix
-    mrot = 0.0
-    model = np.array(pyrr.Matrix44.from_z_rotation(mrot));
-    modelLoc = glGetUniformLocation(shader, "model")
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model)
+    
 
-    # View matrix
-    rot_x = pyrr.Matrix44.from_x_rotation(2.00)
-    rot_z = pyrr.Matrix44.from_z_rotation(3.8)
-    view = np.array(rot_x*rot_z);
-    viewLoc = glGetUniformLocation(shader, "view")
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, view)
+    # Projection
+    projection = np.array(pyrr.matrix44.create_perspective_projection(45, width / height, 0.01, 10))
+    projectionLoc = glGetUniformLocation(shader, "projection")
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection)
 
     # View position
-    view_pos_vec = np.array([0, 0, 3.0, 0.0],dtype=np.float32)
-    view_pos_vec = view*view_pos_vec;
-    viewPosLoc = glGetUniformLocation(shader, "viewPos")
-    glUniform3f(viewPosLoc, -1.5, 2.0, -1.0);
+    # view_pos_vec = np.array([0, 0, 3.0 , 0.0],dtype=np.float32)
+    # view_pos_vec = view*view_pos_vec;
+    # viewPosLoc = glGetUniformLocation(shader, "viewPos")
+    # glUniform3f(viewPosLoc, -1.5, 2.0, -1.0);
+
+    eye = np.array([0.0, 0.0, -2.0])
+    target = np.array([0.0,0.0,0.0])
+    up = np.array([0.0,1.0,0.0])
+    view = np.array(pyrr.matrix44.create_look_at(eye, target, up))
+    viewLoc = glGetUniformLocation(shader, "view")
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, view)
 
     # Light position
     lrot = 5.2
@@ -170,10 +174,42 @@ def main():
     glClearColor(1.0, 1.0, 1.0, 1.0)
     glEnable(GL_DEPTH_TEST)
 
+    rot_y = 0.0
+    rot_x = 0.0
+    rot_z = 0.0
+
     while not glfw.window_should_close(window):
 
         glfw.poll_events()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+
+        if glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
+            rot_z += 0.01
+
+        if glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
+            rot_z -= 0.01
+
+        if glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
+            rot_x += 0.01
+
+        if glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
+            rot_x -= 0.01
+
+        if glfw.get_key(window, glfw.KEY_Q) == glfw.PRESS:
+            rot_y += 0.01
+
+        if glfw.get_key(window, glfw.KEY_E) == glfw.PRESS:
+            rot_y -= 0.01
+
+        # Model matrix
+        mat_x = np.array(pyrr.Matrix44.from_x_rotation(rot_x))
+        mat_y = np.array(pyrr.matrix44.create_from_y_rotation(rot_y))
+        mat_z = np.array(pyrr.matrix44.create_from_z_rotation(rot_z))
+        model = np.dot(mat_z, np.dot(mat_y, mat_x))
+        modelLoc = glGetUniformLocation(shader, "model")
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model)
+        
 
         # Pass time variable to fragment shader (for animation)
         timeLoc = glGetUniformLocation(shader, "time")
