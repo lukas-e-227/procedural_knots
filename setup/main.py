@@ -9,6 +9,9 @@ import openmesh as om
 import json
 from PIL import Image #, ImageDraw, ImageOps
 
+m_counter = 0
+animate = False
+
 def load_texture(i, path, nearest=False, repeat_x_edge=False):
     gltex = [GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7]
     image = Image.open(path)
@@ -28,36 +31,13 @@ def load_texture(i, path, nearest=False, repeat_x_edge=False):
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     if repeat_x_edge:
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
     else:
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
-
-
-def main():
-
-    ### WINDOW SETUP ###########################################################
-
-    if not glfw.init():
-        return
-
-    width = 960
-    height = 540
-    window = glfw.create_window(width, height, "Procedural Knots", None, None)
-
-    if not window:
-        glfw.terminate()
-        return
-
-    glfw.make_context_current(window)
-
-    ### LOAD INPUT 3D MODEL ####################################################
-
-    parent_path = os.path.abspath('./')
-    mesh = om.read_trimesh(parent_path+'\\3d_model\\plank.obj', vertex_normal=True)
-
+def load_model(mesh):
     #Vertices with normals
     point_array = mesh.points()
     normal_array = mesh.vertex_normals()
@@ -83,10 +63,43 @@ def main():
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 24, ctypes.c_void_p(12)) #normal
     glEnableVertexAttribArray(1)
 
+    return indices
+
+def on_key(window, key, scancode, action, mods):
+    global m_counter
+    global animate
+    if key == glfw.KEY_SPACE and action == glfw.PRESS:
+        m_counter += 1
+
+    if key == glfw.KEY_F and action == glfw.PRESS:
+        animate = not animate
+
+def main():
+
+    ### WINDOW SETUP ###########################################################
+
+    if not glfw.init():
+        return
+
+    width = 960
+    height = 540
+    window = glfw.create_window(width, height, "Procedural Knots", None, None)
+
+    if not window:
+        glfw.terminate()
+        return
+
+    glfw.make_context_current(window)
+
+    ### LOAD INPUT 3D MODEL ####################################################
+
+    parent_path = os.path.abspath('./')
+    
     ### LOAD VERTEX AND FRAGEMENT SHADERS FROM EXTERNAL FILES ##################
 
     VERTEX_SHADER = open(parent_path+"\\setup\\main.vert",'r').read()
     FRAGMENT_SHADER = open(parent_path+"\\setup\\main.frag",'r').read()
+
 
     # Compile The Program and shaders
 
@@ -143,18 +156,10 @@ def main():
     knumLoc = glGetUniformLocation(shader, "N")
     glUniform1i(knumLoc, knum)
 
-    
-
     # Projection
     projection = np.array(pyrr.matrix44.create_perspective_projection(45, width / height, 0.01, 10))
     projectionLoc = glGetUniformLocation(shader, "projection")
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection)
-
-    # View position
-    # view_pos_vec = np.array([0, 0, 3.0 , 0.0],dtype=np.float32)
-    # view_pos_vec = view*view_pos_vec;
-    # viewPosLoc = glGetUniformLocation(shader, "viewPos")
-    # glUniform3f(viewPosLoc, -1.5, 2.0, -1.0);
 
     eye = np.array([0.0, 0.0, -2.0])
     target = np.array([0.0,0.0,0.0])
@@ -177,12 +182,30 @@ def main():
     rot_y = 0.0
     rot_x = 0.0
     rot_z = 0.0
+    scale = 1.0
 
-    while not glfw.window_should_close(window):
+    mesh0 = om.read_trimesh(parent_path+'\\3d_model\\plank.obj', vertex_normal=True)
+    mesh1 = om.read_trimesh(parent_path+'\\3d_model\\plank_cut.obj', vertex_normal=True)
+    mesh2 = om.read_trimesh(parent_path+'\\3d_model\\octahedron07.obj', vertex_normal=True)
+    mesh3 = om.read_trimesh(parent_path+'\\3d_model\\cow_02.obj', vertex_normal=True)
 
+    meshes = [mesh0, mesh1, mesh2, mesh3]
+
+    # Enable key events
+    glfw.set_input_mode(window,glfw.STICKY_KEYS,GL_TRUE) 
+	
+	# Enable key event callback
+    glfw.set_key_callback(window, on_key)
+
+    time = 0
+    delta_t = 0
+    
+    while not glfw.window_should_close(window) and not glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:
+        
         glfw.poll_events()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
+        indices = load_model(meshes[m_counter % len(meshes)])
 
         if glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
             rot_z += 0.01
@@ -202,18 +225,31 @@ def main():
         if glfw.get_key(window, glfw.KEY_E) == glfw.PRESS:
             rot_y -= 0.01
 
+        if glfw.get_key(window, glfw.KEY_R) == glfw.PRESS:
+            scale += 0.01
+
+        if glfw.get_key(window, glfw.KEY_T) == glfw.PRESS:
+            scale -= 0.01
+
         # Model matrix
+        scale_arr = np.array([scale, scale, scale])
+        mat_scale = np.array(pyrr.Matrix44.from_scale(scale_arr))
         mat_x = np.array(pyrr.Matrix44.from_x_rotation(rot_x))
         mat_y = np.array(pyrr.matrix44.create_from_y_rotation(rot_y))
         mat_z = np.array(pyrr.matrix44.create_from_z_rotation(rot_z))
-        model = np.dot(mat_z, np.dot(mat_y, mat_x))
+        # model = np.dot(mat_z, np.dot(mat_y, mat_x))
+        model = mat_scale @ mat_z @ mat_y @ mat_x
         modelLoc = glGetUniformLocation(shader, "model")
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model)
         
-
         # Pass time variable to fragment shader (for animation)
         timeLoc = glGetUniformLocation(shader, "time")
-        glUniform1f(timeLoc, glfw.get_time())
+        if animate:
+            time = glfw.get_time() - delta_t
+            glUniform1f(timeLoc, time)
+        else:
+            delta_t = glfw.get_time() - time
+            glUniform1f(timeLoc, time)
 
         # Draw mesh
         glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT,  None)
